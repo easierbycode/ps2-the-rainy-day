@@ -1,4 +1,6 @@
 node_modules
 dist
 logs
-
+npm_output.log
+npm_output.log
+npm_output.log
