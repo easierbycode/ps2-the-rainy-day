@@ -1,6 +1,6 @@
 // {"name": "Athena develop environment", "author": "Wellinator", "version": "04072023", "icon": "render_icon.png", "file": "3dcollision.js"}
 
-import { font } from "./scripts/init/init-font.js";
+import { font as baseFont } from "./scripts/init/init-font.js";
 import { SetupScreen } from "./scripts/init/init-screen.js";
 import { SetupRender } from "./scripts/init/init-render.js";
 
@@ -16,6 +16,131 @@ const canvas = Screen.getMode();
 const uiFont = new Font("./assets/font/Segoe UI.ttf");
 uiFont.scale = 0.7;
 const crossIcon = new Image("./assets/pads/Cross.png");
+let storyFont = baseFont;
+const storyFontScale = storyFont.scale || 0.8;
+const fontExtensions = [".ttf", ".otf"];
+const defaultFontName = "fnaf.ttf";
+const fallbackFontNames = ["fnaf.ttf", "ID Grotesk.ttf"];
+const fontDirectoryCandidates = ["./assets/font", "assets/font"];
+
+let resolvedFontDirectory = fontDirectoryCandidates[0];
+let directoryListing = [];
+
+for (let i = 0; i < fontDirectoryCandidates.length; i++) {
+  const candidate = fontDirectoryCandidates[i];
+  let entries = [];
+
+  try {
+    const result = System.listDir(candidate);
+    if (Array.isArray(result)) {
+      entries = result;
+    }
+  } catch (error) {
+    entries = [];
+  }
+
+  if (entries.length > 0) {
+    resolvedFontDirectory = candidate;
+    directoryListing = entries;
+    break;
+  }
+}
+
+const fontPathPrefix = resolvedFontDirectory.startsWith("./")
+  ? resolvedFontDirectory
+  : `./${resolvedFontDirectory}`;
+
+const normalizePath = (value) =>
+  value.replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
+
+let availableFonts = directoryListing
+  .filter((entry) => !entry.directory)
+  .filter((entry) => {
+    const lower = entry.name.toLowerCase();
+    for (let i = 0; i < fontExtensions.length; i++) {
+      if (lower.endsWith(fontExtensions[i])) {
+        return true;
+      }
+    }
+    return false;
+  })
+  .map((entry) => ({
+    name: entry.name,
+    path: `${fontPathPrefix}/${entry.name}`,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+if (availableFonts.length === 0) {
+  availableFonts = fallbackFontNames.map((name) => ({
+    name,
+    path: `${fontPathPrefix}/${name}`,
+  }));
+} else {
+  const normalizedExisting = new Set(
+    availableFonts.map((entry) => normalizePath(entry.name))
+  );
+
+  for (let i = 0; i < fallbackFontNames.length; i++) {
+    const fallbackName = fallbackFontNames[i];
+    if (!normalizedExisting.has(fallbackName.toLowerCase())) {
+      availableFonts.push({
+        name: fallbackName,
+        path: `${fontPathPrefix}/${fallbackName}`,
+      });
+    }
+  }
+
+  availableFonts = availableFonts.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
+const defaultFontPath = `${fontPathPrefix}/${defaultFontName}`;
+let currentFontPath = defaultFontPath;
+let currentFontIndex = availableFonts.findIndex(
+  (entry) => normalizePath(entry.path) === normalizePath(defaultFontPath)
+);
+
+function setCurrentFontIndex(index) {
+  if (availableFonts.length === 0) {
+    currentFontIndex = -1;
+    return;
+  }
+
+  const boundedIndex = ((index % availableFonts.length) + availableFonts.length) % availableFonts.length;
+  currentFontIndex = boundedIndex;
+  const selectedFont = availableFonts[currentFontIndex];
+  const selectedPath = selectedFont.path;
+
+  if (normalizePath(selectedPath) !== normalizePath(currentFontPath)) {
+    let nextFont = storyFont;
+    try {
+      nextFont = new Font(selectedPath);
+      nextFont.scale = storyFontScale;
+    } catch (error) {
+      nextFont = storyFont;
+    }
+
+    storyFont = nextFont;
+    currentFontPath = selectedPath;
+  }
+}
+
+if (availableFonts.length > 0) {
+  if (currentFontIndex === -1) {
+    setCurrentFontIndex(0);
+  } else {
+    setCurrentFontIndex(currentFontIndex);
+  }
+} else {
+  currentFontIndex = -1;
+}
+
+const debugMenuColor = Color.new(0, 128, 0, 192);
+const debugMenuX = 16;
+const debugMenuY = 16;
+const debugMenuPadding = 8;
+
 const storyPages = [
   [
     "One day I went outside",
@@ -57,6 +182,16 @@ const storyPages = [
     "I felt something gooey.",
     "I pulled up the covers as far as I could",
     "and saw the frog squished."
+  ],
+  [
+    "He got mad and decided",
+    "to cast a spell that took us",
+    "to another land.",
+    "I started to chase him,",
+    "but he started to hop.",
+    "I chased him in circles",
+    "and then I decided to hide",
+    "around the next corner."
   ]
 ];
 
@@ -69,12 +204,27 @@ const indicatorLeftMargin = 40;
 const indicatorBottomMargin = 32;
 const iconTextSpacing = 12;
 const legendText = "NEXT";
+let debugMenuVisible = false;
 
 const pad = Pads.get();
 let currentPage = 0;
 
 while (true) {
   pad.update();
+
+  if (pad.pressed(Pads.SELECT) && pad.justPressed(Pads.DOWN)) {
+    debugMenuVisible = !debugMenuVisible;
+  }
+
+  if (debugMenuVisible && availableFonts.length > 0) {
+    if (pad.justPressed(Pads.L2)) {
+      setCurrentFontIndex(currentFontIndex - 1);
+    }
+
+    if (pad.justPressed(Pads.R2)) {
+      setCurrentFontIndex(currentFontIndex + 1);
+    }
+  }
 
   if (pad.justPressed(Pads.CROSS)) {
     currentPage = (currentPage + 1) % storyPages.length;
@@ -85,7 +235,7 @@ while (true) {
   let maxWidth = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const lineWidth = font.getTextSize(lines[i]).width;
+    const lineWidth = storyFont.getTextSize(lines[i]).width;
     if (lineWidth > maxWidth) {
       maxWidth = lineWidth;
     }
@@ -107,7 +257,20 @@ while (true) {
   Screen.clear(backgroundColor);
 
   for (let index = 0; index < lines.length; index++) {
-    font.print(leftMargin, topMargin + index * lineHeight, lines[index]);
+    storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
+  }
+
+  if (debugMenuVisible) {
+    const fontLabel =
+      availableFonts.length > 0 && currentFontIndex !== -1
+        ? availableFonts[currentFontIndex].name
+        : "None";
+    const debugText = `FONT: ${fontLabel}`;
+    const debugTextSize = uiFont.getTextSize(debugText);
+    const debugWidth = debugTextSize.width + debugMenuPadding * 2;
+    const debugHeight = debugTextSize.height + debugMenuPadding * 2;
+    Draw.rect(debugMenuX, debugMenuY, debugWidth, debugHeight, debugMenuColor);
+    uiFont.print(debugMenuX + debugMenuPadding, debugMenuY + debugMenuPadding, debugText);
   }
 
   crossIcon.draw(legendX, iconY);
