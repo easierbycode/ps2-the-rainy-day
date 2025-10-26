@@ -18,6 +18,7 @@ uiFont.scale = 0.7;
 const crossIcon = new Image("./assets/pads/Cross.png");
 let storyFont = baseFont;
 const storyFontScale = storyFont.scale || 0.8;
+const backgroundMusicPath = "./assets/sounds/gradual.wav";
 const fontExtensions = [".ttf", ".otf"];
 const defaultFontName = "fnaf.ttf";
 const fallbackFontNames = [
@@ -178,6 +179,16 @@ const debugMenuColor = Color.new(0, 128, 0, 192);
 const debugMenuX = 16;
 const debugMenuY = 16;
 const debugMenuPadding = 8;
+
+let backgroundTrack = null;
+
+try {
+  backgroundTrack = Sound.load(backgroundMusicPath);
+  Sound.repeat(true);
+  Sound.play(backgroundTrack);
+} catch (error) {
+  console.log(`Failed to load background music: ${error}`);
+}
 
 const storyPages = [
   [
