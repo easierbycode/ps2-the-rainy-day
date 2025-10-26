@@ -259,11 +259,18 @@ const pad = Pads.get();
 let currentPage = 0;
 
 const frogImage = new Image("./assets/frog.png");
+const meImage = new Image("./assets/me.png");
+const frogChaseImage = new Image("./assets/frog-chase.png");
 let isFrogAnimating = false;
+let isFrogChaseAnimating = false;
 let frogAnimationProgress = 0;
+let frogChaseAnimationProgress = 0;
 const frogAnimationDuration = 60;
-let frogStartY, frogEndY, frogX;
+const frogChaseAnimationDuration = 30;
+let frogStartY, frogEndY, frogX, meX;
+let frogChaseStartY, frogChaseEndY, frogChaseX;
 let frogDimensionsInitialized = false;
+let frogChaseDimensionsInitialized = false;
 
 function easeOutBounce(x) {
   const n1 = 7.5625;
@@ -299,11 +306,17 @@ while (true) {
 
   if (pad.justPressed(Pads.CROSS)) {
     currentPage = (currentPage + 1) % storyPages.length;
-    if (currentPage > 0) {
+    if (currentPage === 1) {
       isFrogAnimating = true;
     } else {
       isFrogAnimating = false;
       frogAnimationProgress = 0;
+    }
+    if (currentPage === 2) {
+      isFrogChaseAnimating = true;
+    } else {
+      isFrogChaseAnimating = false;
+      frogChaseAnimationProgress = 0;
     }
   }
 
@@ -354,11 +367,13 @@ while (true) {
   uiFont.print(legendX + crossIcon.width + iconTextSpacing, textY, legendText);
   uiFont.print(pageIndicatorX, pageIndicatorY, pageIndicator);
 
-  if (isFrogAnimating && frogImage.ready) {
+  if (isFrogAnimating && frogImage.ready && meImage.ready) {
     if (!frogDimensionsInitialized) {
       frogStartY = -frogImage.height;
       frogEndY = canvas.height - frogImage.height;
-      frogX = Math.floor((canvas.width - frogImage.width) / 2);
+      const totalWidth = frogImage.width + meImage.width;
+      frogX = Math.floor((canvas.width - totalWidth) / 2);
+      meX = frogX + frogImage.width;
       frogDimensionsInitialized = true;
     }
 
@@ -371,7 +386,28 @@ while (true) {
     const frogY = frogStartY + (frogEndY - frogStartY) * easedT;
 
     const alpha = Math.min(255, Math.floor(255 * t));
-    frogImage.draw(frogX, frogY, frogImage.width, frogImage.height, Color.new(255, 255, 255, alpha));
+    const drawColor = Color.new(255, 255, 255, alpha);
+    frogImage.draw(frogX, frogY, frogImage.width, frogImage.height, drawColor);
+    meImage.draw(meX, frogY, meImage.width, meImage.height, drawColor);
+  }
+
+  if (isFrogChaseAnimating && frogChaseImage.ready) {
+    if (!frogChaseDimensionsInitialized) {
+      frogChaseStartY = -frogChaseImage.height;
+      frogChaseEndY = Math.floor((canvas.height - frogChaseImage.height) / 2);
+      frogChaseX = Math.floor((canvas.width - frogChaseImage.width) / 2);
+      frogChaseDimensionsInitialized = true;
+    }
+
+    if (frogChaseAnimationProgress < frogChaseAnimationDuration) {
+      frogChaseAnimationProgress++;
+    }
+
+    const t = frogChaseAnimationProgress / frogChaseAnimationDuration;
+    const frogChaseY = frogChaseStartY + (frogChaseEndY - frogChaseStartY) * t;
+    const alpha = Math.min(255, Math.floor(255 * t));
+    const drawColor = Color.new(255, 255, 255, alpha);
+    frogChaseImage.draw(frogChaseX, frogChaseY, frogChaseImage.width, frogChaseImage.height, drawColor);
   }
 
   Screen.flip();
