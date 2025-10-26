@@ -13,18 +13,54 @@ Screen.setVSync(true);
 
 const backgroundColor = Color.new(20, 24, 36, 128);
 const canvas = Screen.getMode();
-const uiFont = new Font("./assets/font/Segoe UI.ttf");
+const uiFont = new Font("./assets/font/NueMedium.ttf");
 uiFont.scale = 0.7;
 const crossIcon = new Image("./assets/pads/Cross.png");
 let storyFont = baseFont;
 const storyFontScale = storyFont.scale || 0.8;
 const fontExtensions = [".ttf", ".otf"];
 const defaultFontName = "fnaf.ttf";
-const fallbackFontNames = ["fnaf.ttf", "ID Grotesk.ttf"];
-const fontDirectoryCandidates = ["./assets/font", "assets/font"];
+const fallbackFontNames = [
+  "fnaf.ttf",
+  "calibril.ttf",
+  "calibrilight.ttf",
+  "Candara.ttf",
+  "Candara_Bold.ttf",
+  "Candara_Bold_Italic.ttf",
+  "Candara_Italic.ttf",
+  "CONSOLA.TTF",
+  "CONSOLAB.TTF",
+  "consolai.ttf",
+  "Consolas.ttf",
+  "consolaz.ttf",
+  "courier-new-bold.ttf",
+  "ID Grotesk.ttf",
+  "LilGrotesk.ttf",
+  "nimbusmonl-bold.ttf",
+  "NudMotoyaMaruW55-W6.ttf",
+  "NudMotoyaMaruW55.ttf",
+  "NueMedium.ttf",
+  "Segoe UI.ttf",
+  "TAHOMABD.TTF",
+  "TeraMedium.ttf",
+  "XM TrafficBdIt.ttf"
+];
+const fontDirectoryCandidates = [
+  "./assets/font",
+  "./assets/font/",
+  "assets/font",
+  "assets/font/",
+  "/assets/font",
+  "/assets/font/",
+  "host:assets/font",
+  "host:assets/font/"
+];
 
 let resolvedFontDirectory = fontDirectoryCandidates[0];
 let directoryListing = [];
+
+const trimTrailingSlash = (value) =>
+  typeof value === "string" ? value.replace(/\/+$/, "") : value;
 
 for (let i = 0; i < fontDirectoryCandidates.length; i++) {
   const candidate = fontDirectoryCandidates[i];
@@ -46,7 +82,9 @@ for (let i = 0; i < fontDirectoryCandidates.length; i++) {
   }
 }
 
-const fontPathPrefix = resolvedFontDirectory.startsWith("./")
+resolvedFontDirectory = trimTrailingSlash(resolvedFontDirectory);
+
+const fontPathPrefix = resolvedFontDirectory.startsWith("./") || resolvedFontDirectory.startsWith("host:")
   ? resolvedFontDirectory
   : `./${resolvedFontDirectory}`;
 
