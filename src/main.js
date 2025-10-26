@@ -47,28 +47,47 @@ const fallbackFontNames = [
   "XM TrafficBdIt.ttf"
 ];
 const fontDirectoryCandidates = [
-  "./assets/font",
-  "./assets/font/",
-  "assets/font",
-  "assets/font/",
   "/assets/font",
-  "/assets/font/",
-  "host:assets/font",
-  "host:assets/font/"
+  "./assets/font",
+  "assets/font",
+  "host:assets/font"
 ];
 
-let resolvedFontDirectory = fontDirectoryCandidates[0];
+let resolvedFontListPath = null;
 let directoryListing = [];
 
-const trimTrailingSlash = (value) =>
-  typeof value === "string" ? value.replace(/\/+$/, "") : value;
+const normalizeSlashes = (value) =>
+  typeof value === "string" ? value.replace(/\\/g, "/") : value;
+
+const toListDirPath = (value) => {
+  if (typeof value !== "string" || value.length === 0) return value;
+  const normalized = normalizeSlashes(value).replace(/\/+$/, "");
+  if (normalized.startsWith("host:")) {
+    return normalized;
+  }
+  let trimmed = normalized.replace(/^(\.\/)+/, "");
+  if (!trimmed.startsWith("/")) {
+    trimmed = `/${trimmed}`;
+  }
+  return trimmed;
+};
+
+const toLoadPathPrefix = (listPath) => {
+  if (typeof listPath !== "string" || listPath.length === 0) return "./assets/font";
+  const normalized = normalizeSlashes(listPath).replace(/\/+$/, "");
+  if (normalized.startsWith("host:")) {
+    return normalized;
+  }
+  const trimmed = normalized.replace(/^\/+/, "");
+  return `./${trimmed}`;
+};
 
 for (let i = 0; i < fontDirectoryCandidates.length; i++) {
-  const candidate = fontDirectoryCandidates[i];
+  const listPath = toListDirPath(fontDirectoryCandidates[i]);
   let entries = [];
 
   try {
-    const result = System.listDir(candidate);
+    const result = System.listDir(listPath);
     if (Array.isArray(result)) {
       entries = result;
     }
@@ -77,20 +96,21 @@ for (let i = 0; i < fontDirectoryCandidates.length; i++) {
   }
 
   if (entries.length > 0) {
-    resolvedFontDirectory = candidate;
+    resolvedFontListPath = listPath;
     directoryListing = entries;
     break;
   }
 }
 
-resolvedFontDirectory = trimTrailingSlash(resolvedFontDirectory);
-
-const fontPathPrefix = resolvedFontDirectory.startsWith("./") || resolvedFontDirectory.startsWith("host:")
-  ? resolvedFontDirectory
-  : `./${resolvedFontDirectory}`;
+const fontPathPrefix = toLoadPathPrefix(resolvedFontListPath);
 
 const normalizePath = (value) =>
-  value.replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
+  value
+    .replace(/\\/g, "/")
+    .replace(/^host:/, "")
+    .replace(/^(\.\/)+/, "")
+    .replace(/^\/+/, "")
+    .toLowerCase();
 
 let availableFonts = directoryListing
   .filter((entry) => !entry.directory)
@@ -179,6 +199,12 @@ const debugMenuColor = Color.new(0, 128, 0, 192);
 const debugMenuX = 16;
 const debugMenuY = 16;
 const debugMenuPadding = 8;
+const frogSquishImage = new Image("./assets/frog-squish2.png");
+const frogBottomMargin = 48;
+const frogSquishAnimationDuration = 90;
+let frogSquishAnimationProgress = 0;
+let isFrogSquishAnimating = false;
+let frogSquishAnimationCompleted = false;
 
 let backgroundTrack = null;
 
@@ -241,8 +267,18 @@ const storyPages = [
     "I chased him in circles",
     "and then I decided to hide",
     "around the next corner."
+  ],
+  [
+    "When he came around that corner",
+    "I squished him.",
+    "When I did the spell was broken",
+    "and I was back in my room.",
+    "Boy, oh boy, was I glad",
+    "the whole thing was over."
   ]
 ];
+
+const frogTargetPageIndex = storyPages.length - 1;
 
 const lineHeight = 18;
 const topMargin = 64;
@@ -308,15 +344,43 @@ while (true) {
     currentPage = (currentPage + 1) % storyPages.length;
     if (currentPage === 1) {
       isFrogAnimating = true;
+      frogAnimationProgress = 0;
+      frogDimensionsInitialized = false;
     } else {
       isFrogAnimating = false;
       frogAnimationProgress = 0;
+      frogDimensionsInitialized = false;
     }
-    if (currentPage === 2) {
+    if (currentPage === 3) {
       isFrogChaseAnimating = true;
+      frogChaseAnimationProgress = 0;
+      frogChaseDimensionsInitialized = false;
     } else {
       isFrogChaseAnimating = false;
       frogChaseAnimationProgress = 0;
+      frogChaseDimensionsInitialized = false;
+    }
+    if (currentPage === frogTargetPageIndex) {
+      isFrogSquishAnimating = true;
+      frogSquishAnimationCompleted = false;
+      frogSquishAnimationProgress = 0;
+      frogSquishImage.angle = 0;
+    } else {
+      isFrogSquishAnimating = false;
+      frogSquishAnimationCompleted = false;
+      frogSquishAnimationProgress = 0;
+      frogSquishImage.angle = 0;
+    }
+  }
+
+  if (isFrogSquishAnimating) {
+    if (frogSquishAnimationProgress < frogSquishAnimationDuration) {
+      frogSquishAnimationProgress++;
+    }
+    if (frogSquishAnimationProgress >= frogSquishAnimationDuration) {
+      isFrogSquishAnimating = false;
+      frogSquishAnimationCompleted = true;
+      frogSquishImage.angle = 0;
     }
   }
 
@@ -348,6 +412,13 @@ while (true) {
 
   for (let index = 0; index < lines.length; index++) {
     storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
+  }
+
+  if (currentPage === 2 && frogSquishImage.ready) {
+    const staticX = Math.floor((canvas.width - frogSquishImage.width) / 2);
+    const staticY = canvas.height - frogSquishImage.height - frogBottomMargin;
+    frogSquishImage.angle = 0;
+    frogSquishImage.draw(staticX, staticY);
   }
 
   if (debugMenuVisible) {
@@ -408,6 +479,34 @@ while (true) {
     const alpha = Math.min(255, Math.floor(255 * t));
     const drawColor = Color.new(255, 255, 255, alpha);
     frogChaseImage.draw(frogChaseX, frogChaseY, frogChaseImage.width, frogChaseImage.height, drawColor);
+  }
+
+  if ((isFrogSquishAnimating || frogSquishAnimationCompleted) && currentPage === frogTargetPageIndex && frogSquishImage.ready) {
+    const rawProgress = isFrogSquishAnimating
+      ? frogSquishAnimationProgress / frogSquishAnimationDuration
+      : 1;
+    const clampedProgress = Math.max(0, Math.min(1, rawProgress));
+    const eased = clampedProgress * clampedProgress * (3 - 2 * clampedProgress);
+    const startX = canvas.width + frogSquishImage.width;
+    const startY = canvas.height + frogSquishImage.height;
+    const finalX = Math.floor((canvas.width - frogSquishImage.width) / 2);
+    const finalY = canvas.height - frogSquishImage.height - frogBottomMargin;
+    const sway = Math.sin(clampedProgress * Math.PI) * 36 * (1 - eased);
+    const currentX = startX + (finalX - startX) * eased;
+    const currentY = startY + (finalY - startY) * eased - sway;
+    const alpha = Math.min(255, Math.floor(255 * clampedProgress));
+    const drawColor = Color.new(255, 255, 255, alpha);
+    frogSquishImage.angle = (1 - eased) * 20 * Math.sin(clampedProgress * Math.PI * 2);
+    frogSquishImage.draw(
+      Math.floor(currentX),
+      Math.floor(currentY),
+      frogSquishImage.width,
+      frogSquishImage.height,
+      drawColor
+    );
+    if (!isFrogSquishAnimating) {
+      frogSquishImage.angle = 0;
+    }
   }
 
   Screen.flip();
