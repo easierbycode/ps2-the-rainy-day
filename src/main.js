@@ -275,10 +275,34 @@ const storyPages = [
     "and I was back in my room.",
     "Boy, oh boy, was I glad",
     "the whole thing was over."
+  ],
+  [
+    "After the frog came back",
+    "he was a spirit and he was mad.",
+    "He decided to hop after me."
+  ],
+  [
+    "So I squished him",
+    "and fried him like a pancake.",
+    "He dove off the stove",
+    "with his butt on fire.",
+    "He rolled across the room",
+    "and out the door.",
+    "",
+    "My dog tried to eat him",
+    "so he decided to cast a spell",
+    "and he turned my dog",
+    "into Bloody Mary.",
+    "",
+    "Bloody Mary came and ate my parents,",
+    "so I dove into the refrigerator,",
+    "but he ate the refrigerator.",
+    "",
+    "The end"
   ]
 ];
 
-const frogTargetPageIndex = storyPages.length - 1;
+const frogSquishPageIndex = storyPages.length - 3;
 
 const lineHeight = 18;
 const topMargin = 64;
@@ -360,7 +384,7 @@ while (true) {
       frogChaseAnimationProgress = 0;
       frogChaseDimensionsInitialized = false;
     }
-    if (currentPage === frogTargetPageIndex) {
+    if (currentPage === frogSquishPageIndex) {
       isFrogSquishAnimating = true;
       frogSquishAnimationCompleted = false;
       frogSquishAnimationProgress = 0;
@@ -481,7 +505,7 @@ while (true) {
     frogChaseImage.draw(frogChaseX, frogChaseY, frogChaseImage.width, frogChaseImage.height, drawColor);
   }
 
-  if ((isFrogSquishAnimating || frogSquishAnimationCompleted) && currentPage === frogTargetPageIndex && frogSquishImage.ready) {
+  if ((isFrogSquishAnimating || frogSquishAnimationCompleted) && currentPage === frogSquishPageIndex && frogSquishImage.ready) {
     const rawProgress = isFrogSquishAnimating
       ? frogSquishAnimationProgress / frogSquishAnimationDuration
       : 1;
