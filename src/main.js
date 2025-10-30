@@ -160,6 +160,31 @@ let currentFontIndex = availableFonts.findIndex(
   (entry) => normalizePath(entry.path) === normalizePath(defaultFontPath)
 );
 
+let storyMaxWidths = [];
+function updateStoryMaxWidths() {
+  storyMaxWidths = storyPages.map(page => {
+    let maxWidth = 0;
+    for (const line of page) {
+      const lineWidth = storyFont.getTextSize(line).width;
+      if (lineWidth > maxWidth) {
+        maxWidth = lineWidth;
+      }
+    }
+    return maxWidth;
+  });
+}
+
+let debugText = "";
+let debugTextSize = { width: 0, height: 0 };
+function updateDebugText() {
+    const fontLabel =
+      availableFonts.length > 0 && currentFontIndex !== -1
+        ? availableFonts[currentFontIndex].name
+        : "None";
+    debugText = `FONT: ${fontLabel}`;
+    debugTextSize = uiFont.getTextSize(debugText);
+}
+
 function setCurrentFontIndex(index) {
   if (availableFonts.length === 0) {
     currentFontIndex = -1;
@@ -167,6 +192,10 @@ function setCurrentFontIndex(index) {
   }
 
   const boundedIndex = ((index % availableFonts.length) + availableFonts.length) % availableFonts.length;
+  const fontChanged = currentFontIndex !== boundedIndex;
+
+  if (!fontChanged) return;
+
   currentFontIndex = boundedIndex;
   const selectedFont = availableFonts[currentFontIndex];
   const selectedPath = selectedFont.path;
@@ -182,7 +211,10 @@ function setCurrentFontIndex(index) {
 
     storyFont = nextFont;
     currentFontPath = selectedPath;
+    updateStoryMaxWidths();
   }
+
+  updateDebugText();
 }
 
 if (availableFonts.length > 0) {
@@ -193,27 +225,6 @@ if (availableFonts.length > 0) {
   }
 } else {
   currentFontIndex = -1;
-}
-
-const debugMenuColor = Color.new(0, 128, 0, 192);
-const debugMenuX = 16;
-const debugMenuY = 16;
-const debugMenuPadding = 8;
-const frogSquishImage = new Image("./assets/frog-squish2.png");
-const frogBottomMargin = 48;
-const frogSquishAnimationDuration = 90;
-let frogSquishAnimationProgress = 0;
-let isFrogSquishAnimating = false;
-let frogSquishAnimationCompleted = false;
-
-let backgroundTrack = null;
-
-try {
-  backgroundTrack = Sound.load(backgroundMusicPath);
-  Sound.repeat(true);
-  Sound.play(backgroundTrack);
-} catch (error) {
-  console.log(`Failed to load background music: ${error}`);
 }
 
 const storyPages = [
@@ -304,6 +315,30 @@ const storyPages = [
 
 const frogSquishPageIndex = storyPages.length - 3;
 
+updateStoryMaxWidths();
+updateDebugText();
+
+const debugMenuColor = Color.new(0, 128, 0, 192);
+const debugMenuX = 16;
+const debugMenuY = 16;
+const debugMenuPadding = 8;
+const frogSquishImage = new Image("./assets/frog-squish2.png");
+const frogBottomMargin = 48;
+const frogSquishAnimationDuration = 90;
+let frogSquishAnimationProgress = 0;
+let isFrogSquishAnimating = false;
+let frogSquishAnimationCompleted = false;
+
+let backgroundTrack = null;
+
+try {
+  backgroundTrack = Sound.load(backgroundMusicPath);
+  Sound.repeat(true);
+  Sound.play(backgroundTrack);
+} catch (error) {
+  console.log(`Failed to load background music: ${error}`);
+}
+
 const lineHeight = 18;
 const topMargin = 64;
 const horizontalPadding = 40;
@@ -313,10 +348,19 @@ const indicatorLeftMargin = 40;
 const indicatorBottomMargin = 32;
 const iconTextSpacing = 12;
 const legendText = "NEXT";
+const legendTextSize = uiFont.getTextSize(legendText);
 let debugMenuVisible = false;
 
 const pad = Pads.get();
 let currentPage = 0;
+
+let pageIndicator = "";
+let pageIndicatorSize = { width: 0, height: 0 };
+function updatePageIndicator() {
+  pageIndicator = `${currentPage + 1}/${storyPages.length}`;
+  pageIndicatorSize = uiFont.getTextSize(pageIndicator);
+}
+updatePageIndicator();
 
 const frogImage = new Image("./assets/frog.png");
 const meImage = new Image("./assets/me.png");
@@ -366,6 +410,7 @@ while (true) {
 
   if (pad.justPressed(Pads.CROSS)) {
     currentPage = (currentPage + 1) % storyPages.length;
+    updatePageIndicator();
     if (currentPage === 1) {
       isFrogAnimating = true;
       frogAnimationProgress = 0;
@@ -409,18 +454,8 @@ while (true) {
   }
 
   const lines = storyPages[currentPage];
-  const pageIndicator = `${currentPage + 1}/${storyPages.length}`;
-  let maxWidth = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const lineWidth = storyFont.getTextSize(lines[i]).width;
-    if (lineWidth > maxWidth) {
-      maxWidth = lineWidth;
-    }
-  }
-
+  const maxWidth = storyMaxWidths[currentPage];
   const leftMargin = Math.max(horizontalPadding, Math.floor((canvas.width - maxWidth) / 2));
-  const legendTextSize = uiFont.getTextSize(legendText);
   const legendHeight = Math.max(crossIcon.height, legendTextSize.height);
   const legendTop = canvas.height - legendHeight - legendBottomMargin;
   const legendWidth = crossIcon.width + iconTextSpacing + legendTextSize.width;
@@ -428,7 +463,6 @@ while (true) {
   const legendMidY = legendTop + Math.floor(legendHeight / 2);
   const iconY = legendMidY - Math.floor(crossIcon.height / 2);
   const textY = legendMidY - Math.floor(legendTextSize.height / 2);
-  const pageIndicatorSize = uiFont.getTextSize(pageIndicator);
   const pageIndicatorX = indicatorLeftMargin;
   const pageIndicatorY = canvas.height - pageIndicatorSize.height - indicatorBottomMargin;
 
@@ -446,12 +480,6 @@ while (true) {
   }
 
   if (debugMenuVisible) {
-    const fontLabel =
-      availableFonts.length > 0 && currentFontIndex !== -1
-        ? availableFonts[currentFontIndex].name
-        : "None";
-    const debugText = `FONT: ${fontLabel}`;
-    const debugTextSize = uiFont.getTextSize(debugText);
     const debugWidth = debugTextSize.width + debugMenuPadding * 2;
     const debugHeight = debugTextSize.height + debugMenuPadding * 2;
     Draw.rect(debugMenuX, debugMenuY, debugWidth, debugHeight, debugMenuColor);
