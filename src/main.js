@@ -547,8 +547,10 @@ while (true) {
 
   if (isFrogChaseAnimating && frogChaseImage.ready) {
     if (!frogChaseDimensionsInitialized) {
+      const textBottom = topMargin + lineHeight * storyPages[3].length;
+      const availableSpace = canvas.height - textBottom - frogBottomMargin;
       frogChaseStartY = -frogChaseImage.height;
-      frogChaseEndY = Math.floor((canvas.height - frogChaseImage.height) / 2);
+      frogChaseEndY = Math.max(textBottom + 12, textBottom + availableSpace / 2);
       frogChaseX = Math.floor((canvas.width - frogChaseImage.width) / 2);
       frogChaseDimensionsInitialized = true;
     }
