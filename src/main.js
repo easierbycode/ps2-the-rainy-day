@@ -365,6 +365,7 @@ updatePageIndicator();
 const frogImage = new Image("./assets/frog.png");
 const meImage = new Image("./assets/me.png");
 const frogChaseImage = new Image("./assets/frog-chase.png");
+const meRainImage = new Image("./assets/me-rain.png");
 let isFrogAnimating = false;
 let isFrogChaseAnimating = false;
 let frogAnimationProgress = 0;
@@ -375,6 +376,13 @@ let frogStartY, frogEndY, frogX, meX;
 let frogChaseStartY, frogChaseEndY, frogChaseX;
 let frogDimensionsInitialized = false;
 let frogChaseDimensionsInitialized = false;
+const rainAnimationDuration = Math.floor(2.5 * 60);
+const rainScaleStart = 0.25;
+const rainScaleEnd = 1.0;
+const rainStartYOffset = 160;
+let rainAnimationProgress = 0;
+let isRainAnimating = true;
+let rainAnimationCompleted = false;
 
 function easeOutBounce(x) {
   const n1 = 7.5625;
@@ -389,6 +397,12 @@ function easeOutBounce(x) {
   } else {
     return n1 * (x -= 2.625 / d1) * x + 0.984375;
   }
+}
+
+function easeOutCubic(x) {
+  const clamped = Math.max(0, Math.min(1, x));
+  const inv = 1 - clamped;
+  return 1 - inv * inv * inv;
 }
 
 while (true) {
@@ -411,6 +425,15 @@ while (true) {
   if (pad.justPressed(Pads.CROSS)) {
     currentPage = (currentPage + 1) % storyPages.length;
     updatePageIndicator();
+    if (currentPage === 0) {
+      isRainAnimating = true;
+      rainAnimationCompleted = false;
+      rainAnimationProgress = 0;
+    } else {
+      isRainAnimating = false;
+      rainAnimationCompleted = false;
+      rainAnimationProgress = 0;
+    }
     if (currentPage === 1) {
       isFrogAnimating = true;
       frogAnimationProgress = 0;
@@ -442,6 +465,16 @@ while (true) {
     }
   }
 
+  if (isRainAnimating) {
+    if (rainAnimationProgress < rainAnimationDuration) {
+      rainAnimationProgress++;
+    }
+    if (rainAnimationProgress >= rainAnimationDuration) {
+      isRainAnimating = false;
+      rainAnimationCompleted = true;
+    }
+  }
+
   if (isFrogSquishAnimating) {
     if (frogSquishAnimationProgress < frogSquishAnimationDuration) {
       frogSquishAnimationProgress++;
@@ -467,6 +500,22 @@ while (true) {
   const pageIndicatorY = canvas.height - pageIndicatorSize.height - indicatorBottomMargin;
 
   Screen.clear(backgroundColor);
+
+  if ((isRainAnimating || rainAnimationCompleted) && currentPage === 0 && meRainImage.ready) {
+    const rawProgress = isRainAnimating
+      ? rainAnimationProgress / rainAnimationDuration
+      : 1;
+    const clamped = Math.max(0, Math.min(1, rawProgress));
+    const eased = rainAnimationCompleted ? 1 : easeOutCubic(clamped);
+    const scale = rainScaleStart + (rainScaleEnd - rainScaleStart) * eased;
+    const scaledWidth = Math.max(1, Math.round(meRainImage.width * scale));
+    const scaledHeight = Math.max(1, Math.round(meRainImage.height * scale));
+    const finalY = canvas.height - meRainImage.height - frogBottomMargin;
+    const startY = finalY + rainStartYOffset;
+    const currentX = Math.floor((canvas.width - scaledWidth) / 2);
+    const currentY = Math.floor(startY - (startY - finalY) * eased);
+    meRainImage.draw(currentX, currentY, scaledWidth, scaledHeight);
+  }
 
   for (let index = 0; index < lines.length; index++) {
     storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
