@@ -521,24 +521,6 @@ while (true) {
     storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
   }
 
-  if (currentPage === 2 && frogSquishImage.ready) {
-    const staticX = Math.floor((canvas.width - frogSquishImage.width) / 2);
-    const staticY = canvas.height - frogSquishImage.height - frogBottomMargin;
-    frogSquishImage.angle = 0;
-    frogSquishImage.draw(staticX, staticY);
-  }
-
-  if (debugMenuVisible) {
-    const debugWidth = debugTextSize.width + debugMenuPadding * 2;
-    const debugHeight = debugTextSize.height + debugMenuPadding * 2;
-    Draw.rect(debugMenuX, debugMenuY, debugWidth, debugHeight, debugMenuColor);
-    uiFont.print(debugMenuX + debugMenuPadding, debugMenuY + debugMenuPadding, debugText);
-  }
-
-  crossIcon.draw(legendX, iconY);
-  uiFont.print(legendX + crossIcon.width + iconTextSpacing, textY, legendText);
-  uiFont.print(pageIndicatorX, pageIndicatorY, pageIndicator);
-
   if (isFrogAnimating && frogImage.ready && meImage.ready) {
     if (!frogDimensionsInitialized) {
       frogStartY = -frogImage.height;
@@ -609,6 +591,28 @@ while (true) {
       frogSquishImage.angle = 0;
     }
   }
+
+  if (currentPage === 2 && frogSquishImage.ready) {
+    const staticX = Math.floor((canvas.width - frogSquishImage.width) / 2);
+    const staticY = canvas.height - frogSquishImage.height - frogBottomMargin;
+    frogSquishImage.angle = 0;
+    frogSquishImage.draw(staticX, staticY);
+  }
+
+  for (let index = 0; index < lines.length; index++) {
+    storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
+  }
+
+  if (debugMenuVisible) {
+    const debugWidth = debugTextSize.width + debugMenuPadding * 2;
+    const debugHeight = debugTextSize.height + debugMenuPadding * 2;
+    Draw.rect(debugMenuX, debugMenuY, debugWidth, debugHeight, debugMenuColor);
+    uiFont.print(debugMenuX + debugMenuPadding, debugMenuY + debugMenuPadding, debugText);
+  }
+
+  crossIcon.draw(legendX, iconY);
+  uiFont.print(legendX + crossIcon.width + iconTextSpacing, textY, legendText);
+  uiFont.print(pageIndicatorX, pageIndicatorY, pageIndicator);
 
   Screen.flip();
 }
