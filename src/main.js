@@ -212,6 +212,7 @@ function setCurrentFontIndex(index) {
     storyFont = nextFont;
     currentFontPath = selectedPath;
     updateStoryMaxWidths();
+    initializeLetterRain(currentPage);
   }
 
   updateDebugText();
@@ -315,6 +316,217 @@ const storyPages = [
 
 const frogSquishPageIndex = storyPages.length - 3;
 
+const lineHeight = 18;
+const topMargin = 64;
+const horizontalPadding = 40;
+const legendBottomMargin = 32;
+const legendRightMargin = 40;
+const indicatorLeftMargin = 40;
+const indicatorBottomMargin = 32;
+const iconTextSpacing = 12;
+const legendText = "NEXT";
+const legendTextSize = uiFont.getTextSize(legendText);
+
+const rainAtlasTexture = new Image("./assets/rain.png");
+const rainAtlasFrames = [
+  {
+    x: 0,
+    y: 0,
+    width: 39,
+    height: 85,
+    dotted: false,
+    frameDuration: 10,
+    color: Color.new(172, 206, 255, 255),
+  },
+  {
+    x: 39,
+    y: 0,
+    width: 38,
+    height: 75,
+    dotted: true,
+    frameDuration: 10,
+    color: Color.new(120, 180, 255, 255),
+  },
+  {
+    x: 77,
+    y: 0,
+    width: 41,
+    height: 86,
+    dotted: true,
+    frameDuration: 10,
+    color: Color.new(135, 190, 255, 255),
+  },
+  {
+    x: 118,
+    y: 0,
+    width: 36,
+    height: 73,
+    dotted: false,
+    frameDuration: 10,
+    color: Color.new(180, 210, 255, 255),
+  },
+];
+const letterDropDuration = Math.floor(0.60 * 60);
+const letterDelayBetweenChars = 2;
+const letterDropVerticalOffset = 180;
+let letterStates = [];
+let letterLineBuffers = [];
+let letterGlobalFrame = 0;
+
+function initializeLetterRain(pageIndex) {
+  const lines = storyPages[pageIndex];
+  letterStates = [];
+  letterLineBuffers = [];
+  letterGlobalFrame = 0;
+
+  const fallbackWidth = Math.max(1, storyFont.getTextSize("M").width || 12);
+  const spaceWidth = Math.max(1, storyFont.getTextSize(" ").width || fallbackWidth);
+
+  let globalCharCounter = 0;
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    const chars = Array.from(line);
+    const buffer = [];
+    let offsetX = 0;
+
+    for (let charIndex = 0; charIndex < chars.length; charIndex++) {
+      const character = chars[charIndex];
+      let charWidth = storyFont.getTextSize(character).width;
+      if (charWidth === 0) {
+        charWidth = character === " " ? spaceWidth : fallbackWidth;
+      }
+
+      const hasDroplet = character !== " " && character !== "\t";
+      const targetY = topMargin + lineIndex * lineHeight;
+      const startY = targetY - letterDropVerticalOffset;
+
+      letterStates.push({
+        char: character,
+        lineIndex,
+        charIndex,
+        offsetX,
+        width: charWidth,
+        targetY,
+        startY,
+        delay: globalCharCounter * letterDelayBetweenChars,
+        framesActive: 0,
+        isActive: false,
+        isComplete: !hasDroplet,
+        hasDroplet,
+        progress: 0,
+      });
+
+      buffer.push(hasDroplet ? " " : character);
+      offsetX += charWidth;
+      globalCharCounter++;
+    }
+
+    letterLineBuffers.push(buffer);
+  }
+}
+
+function updateLetterRainStates() {
+  if (letterStates.length === 0) return;
+  letterGlobalFrame++;
+
+  for (let i = 0; i < letterStates.length; i++) {
+    const state = letterStates[i];
+    if (state.isComplete) continue;
+    if (!state.hasDroplet) {
+      state.isComplete = true;
+      if (letterLineBuffers[state.lineIndex]) {
+        letterLineBuffers[state.lineIndex][state.charIndex] = state.char;
+      }
+      continue;
+    }
+
+    if (!state.isActive) {
+      if (letterGlobalFrame >= state.delay) {
+        state.isActive = true;
+        state.framesActive = 0;
+      } else {
+        continue;
+      }
+    } else if (state.framesActive < letterDropDuration) {
+      state.framesActive++;
+    }
+
+    const progress = Math.min(1, state.framesActive / letterDropDuration);
+    state.progress = progress;
+
+    if (progress >= 1) {
+      state.isComplete = true;
+      if (letterLineBuffers[state.lineIndex]) {
+        letterLineBuffers[state.lineIndex][state.charIndex] = state.char;
+      }
+    }
+  }
+}
+
+function drawLetterRaindrops(leftMargin) {
+  if (letterStates.length === 0) return;
+
+  const framesCount = rainAtlasFrames.length;
+  const defaultFrameDuration = Math.max(1, Math.round(60 / 6));
+  const totalFrameSpan = rainAtlasFrames.reduce(
+    (sum, frame) => sum + (frame.frameDuration || defaultFrameDuration),
+    0
+  );
+
+  for (let i = 0; i < letterStates.length; i++) {
+    const state = letterStates[i];
+    if (!state.hasDroplet || !state.isActive || state.isComplete) continue;
+
+    const progress = Math.max(0, Math.min(1, state.progress));
+    const eased = easeOutCubic(progress);
+    const currentY = state.startY + (state.targetY - state.startY) * eased;
+    const frameTime = state.framesActive % totalFrameSpan;
+    let accumulated = 0;
+    let frame = rainAtlasFrames[0];
+    for (let j = 0; j < framesCount; j++) {
+      const candidate = rainAtlasFrames[j];
+      const duration = candidate.frameDuration || defaultFrameDuration;
+      accumulated += duration;
+      if (frameTime < accumulated) {
+        frame = candidate;
+        break;
+      }
+    }
+
+    const dropWidth = frame.width;
+    const dropHeight = frame.height;
+    const scale = Math.max(0.6, Math.min(1.0, state.width / dropWidth));
+    const drawWidth = Math.max(1, Math.round(dropWidth * scale));
+    const drawHeight = Math.max(1, Math.round(dropHeight * scale));
+
+    const prevStartX = rainAtlasTexture.startx;
+    const prevStartY = rainAtlasTexture.starty;
+    const prevEndX = rainAtlasTexture.endx;
+    const prevEndY = rainAtlasTexture.endy;
+    const prevWidth = rainAtlasTexture.width;
+    const prevHeight = rainAtlasTexture.height;
+    rainAtlasTexture.startx = frame.x;
+    rainAtlasTexture.starty = frame.y;
+    rainAtlasTexture.endx = frame.x + frame.width;
+    rainAtlasTexture.endy = frame.y + frame.height;
+    rainAtlasTexture.width = drawWidth;
+    rainAtlasTexture.height = drawHeight;
+    const dropX = Math.floor(leftMargin + state.offsetX + state.width / 2 - drawWidth / 2);
+    const dropY = Math.floor(currentY - drawHeight);
+    const tint = frame.color || Color.new(255, 255, 255, 255);
+    rainAtlasTexture.color = tint;
+    rainAtlasTexture.draw(dropX, dropY);
+    rainAtlasTexture.startx = prevStartX;
+    rainAtlasTexture.starty = prevStartY;
+    rainAtlasTexture.endx = prevEndX;
+    rainAtlasTexture.endy = prevEndY;
+    rainAtlasTexture.width = prevWidth;
+    rainAtlasTexture.height = prevHeight;
+    rainAtlasTexture.color = Color.new(255, 255, 255, 255);
+  }
+}
+
 updateStoryMaxWidths();
 updateDebugText();
 
@@ -339,16 +551,6 @@ try {
   console.log(`Failed to load background music: ${error}`);
 }
 
-const lineHeight = 18;
-const topMargin = 64;
-const horizontalPadding = 40;
-const legendBottomMargin = 32;
-const legendRightMargin = 40;
-const indicatorLeftMargin = 40;
-const indicatorBottomMargin = 32;
-const iconTextSpacing = 12;
-const legendText = "NEXT";
-const legendTextSize = uiFont.getTextSize(legendText);
 let debugMenuVisible = false;
 
 const pad = Pads.get();
@@ -361,6 +563,7 @@ function updatePageIndicator() {
   pageIndicatorSize = uiFont.getTextSize(pageIndicator);
 }
 updatePageIndicator();
+initializeLetterRain(currentPage);
 
 const frogImage = new Image("./assets/frog.png");
 const meImage = new Image("./assets/me.png");
@@ -425,6 +628,7 @@ while (true) {
   if (pad.justPressed(Pads.CROSS)) {
     currentPage = (currentPage + 1) % storyPages.length;
     updatePageIndicator();
+    initializeLetterRain(currentPage);
     if (currentPage === 0) {
       isRainAnimating = true;
       rainAnimationCompleted = false;
@@ -464,6 +668,8 @@ while (true) {
       frogSquishImage.angle = 0;
     }
   }
+
+  updateLetterRainStates();
 
   if (isRainAnimating) {
     if (rainAnimationProgress < rainAnimationDuration) {
@@ -517,10 +723,6 @@ while (true) {
     meRainImage.draw(currentX, currentY, scaledWidth, scaledHeight);
   }
 
-  for (let index = 0; index < lines.length; index++) {
-    storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
-  }
-
   if (isFrogAnimating && frogImage.ready && meImage.ready) {
     if (!frogDimensionsInitialized) {
       frogStartY = -frogImage.height;
@@ -547,7 +749,8 @@ while (true) {
 
   if (isFrogChaseAnimating && frogChaseImage.ready) {
     if (!frogChaseDimensionsInitialized) {
-      const textBottom = topMargin + lineHeight * storyPages[3].length;
+      const currentLines = storyPages[currentPage];
+      const textBottom = topMargin + lineHeight * currentLines.length;
       const availableSpace = canvas.height - textBottom - frogBottomMargin;
       frogChaseStartY = -frogChaseImage.height;
       frogChaseEndY = Math.max(textBottom + 12, textBottom + availableSpace / 2);
@@ -601,8 +804,12 @@ while (true) {
     frogSquishImage.draw(staticX, staticY);
   }
 
-  for (let index = 0; index < lines.length; index++) {
-    storyFont.print(leftMargin, topMargin + index * lineHeight, lines[index]);
+  drawLetterRaindrops(leftMargin);
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const buffer = letterLineBuffers[lineIndex];
+    const printableLine = buffer ? buffer.join("") : lines[lineIndex];
+    storyFont.print(leftMargin, topMargin + lineIndex * lineHeight, printableLine);
   }
 
   if (debugMenuVisible) {
