@@ -496,9 +496,9 @@ function drawLetterRaindrops(leftMargin) {
 
     const dropWidth = frame.width;
     const dropHeight = frame.height;
-    const scale = Math.max(0.6, Math.min(1.0, state.width / dropWidth));
-    const drawWidth = Math.max(1, Math.round(dropWidth * scale));
-    const drawHeight = Math.max(1, Math.round(dropHeight * scale));
+    const drawWidth = Math.max(1, Math.round(state.width));
+    const widthScale = drawWidth / dropWidth;
+    const drawHeight = Math.max(1, Math.round(dropHeight * widthScale));
 
     const prevStartX = rainAtlasTexture.startx;
     const prevStartY = rainAtlasTexture.starty;
